@@ -19,9 +19,9 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_info = {
-	"name": "Blender Source Tools",
-	"author": "Tom Edwards (translators: Grigory Revzin)",
-	"version": (2, 10, 2),
+	"name": "Blender Source Tools (BST-Fix-279)",
+	"author": "Tom Edwards (translators: Grigory Revzin), modified by TF",
+	"version": (2, 10, 2, 999, 1),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
