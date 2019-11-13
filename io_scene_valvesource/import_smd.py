@@ -911,8 +911,28 @@ class SmdImporter(bpy.types.Operator, Logger):
 							try:
 								map_id = mesh_cos_rnd.index(vec_round(co))
 							except ValueError:
-								bad_vta_verts.append(i)
-								continue
+								fuzzy = 0.00001
+								testCoord = vec_round(co)
+								print("Unmatched VTA vert -> ID: " + str(id) + "; Coord: " + str(co) + ". Resolve with fuzzy coords, fuzzy: " + str(fuzzy))
+								testRes = -1
+								matchedCoord = None
+								checkIndex = -1
+								for coord in mesh_cos:
+									checkIndex += 1
+									if abs(coord[0] - co[0]) < fuzzy:
+										if abs(coord[1] - co[1]) < fuzzy:
+											if abs(coord[2] - co[2]) < fuzzy:
+												testRes = checkIndex
+												matchedCoord = coord
+												break
+								if testRes > -1:
+									map_id = testRes
+									print("Successfully resolved with fuzzy coords. Matched id: " + str(map_id) + "; coord: " + str(matchedCoord))
+									co_map[id] = map_id
+								else:
+									print("Could not resolve unmatched vert with fuzzy coords")
+									bad_vta_verts.append(i)
+									continue
 						co_map[id] = map_id
 					
 					bpy.data.meshes.remove(vd)

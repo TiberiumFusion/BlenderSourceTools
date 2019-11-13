@@ -2,3 +2,7 @@ __pycache__
 *.suo
 *.pyperf
 *.VC.*
+.vs
+/old.txt
+/Test Install.bat
+/UpgradeLog.htm
