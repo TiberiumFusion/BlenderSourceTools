@@ -1,0 +1,10 @@
+## BlenderSourceTools+ for 2.79
+Fork of the final BlenderSourceTools release for Blender 2.79 with some improvements and fixes.
+
+## Notable additions
+
+### Fuzzy VTA matching
+Blender/BlenderSourceTools has some precision issues that become very problematic when importing SMD and DMX meshes with dense vertices. Specifically, the VTA format is slightly more precise than Blender's default floating point type, which causes high-detail flexes to become garbled when imported by BlenderSourceTools. This fork "fixes" the issue by matching inequal, but very similar, vertices from the reference mesh to the flexes at an epsilon of 0.00001. This is the degree of precision used by Crowbar when decompiling models and should be suitable for almost all models.
+
+### QC eyeball bone generation
+Adds an option when importing QCs to generate unweighted bones for all `eyeball` commands. These dummy eye bones can be useful for developing 2D eye tracking techniques when the model is exported for use in other engines or 3D packages.
