@@ -53,8 +53,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 	rotModes = ( ('XYZ', "Euler", ''), ('QUATERNION', "Quaternion", "") )
 	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
 	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
-	
-	createEyeballBones = BoolProperty(name=get_id("importert_doeyebones"), description=get_id("importert_doeyebones_tooltip"), default=False)
+
+	createEyeballBonesOpts = (("NONE", "None", "Don't create eyeball bones"), ("SINGLE", "Single Bone", "Create a single bone per eyeball"), ("WITHLEAF", "With Leaf Bone", "Create a two bones per eyeball, a basis bone and a leaf bone."))
+	createEyeballBones = EnumProperty(name=get_id("importert_doeyebones"), description=get_id("importert_doeyebones_tooltip"), items=createEyeballBonesOpts, default="NONE")
 
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
@@ -1156,7 +1157,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 				continue
 			
 			# define bones from qc eyeball commands
-			if createEyeballBones:
+			if createEyeballBones != "NONE":
 				if line[0] == "eyeball":
 					eyeballName = line[1]
 					parentBoneName = line[2]
@@ -1242,16 +1243,22 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 				eyeballBone = qc.a.data.edit_bones.new(bonedef[0])
 				eyeballBone.head = (bonedef[2], bonedef[3], bonedef[4])
-				eyeballBone.tail = (bonedef[2], bonedef[3] - 0.25, bonedef[4])
+				eyeballBone.tail = (bonedef[2] + 0.1, bonedef[3], bonedef[4])
 				eyeballBone.parent = parentBone
-
 				createdBones.append(bonedef[0])
+
+				if createEyeballBones == "WITHLEAF":
+					leafEyeballBone = qc.a.data.edit_bones.new(bonedef[0] + "_end")
+					leafEyeballBone.head = eyeballBone.tail
+					leafEyeballBone.tail = (eyeballBone.tail[0] + 0.1, eyeballBone.tail[1], eyeballBone.tail[2])
+					leafEyeballBone.parent = eyeballBone
+					createdBones.append(bonedef[0] + "_end")
 
 			# Set visual bone model
 			ops.object.mode_set(mode='OBJECT')
 
-			for bonedef in qc.queued_eyebones:
-				qc.a.pose.bones[bonedef[0]].custom_shape = qc.bone_vis
+			for bonename in createdBones:
+				qc.a.pose.bones[bonename].custom_shape = qc.bone_vis
 
 
 		if qc.origin:
