@@ -19,15 +19,15 @@
 # ##### END GPL LICENSE BLOCK #####
 
 bl_info = {
-	"name": "Blender Source Tools (BST-Fix-279)",
+	"name": "Blender Source Tools (BST-Fix+ for 2.79)",
 	"author": "Tom Edwards (translators: Grigory Revzin), modified by TF",
-	"version": (2, 10, 2, 999, 1),
+	"version": (2, 10, 2, 999, 2),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",
 	"wiki_url": "http://steamcommunity.com/groups/BlenderSourceTools",
 	"tracker_url": "http://steamcommunity.com/groups/BlenderSourceTools/discussions/0/",
-	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC."
+	"description": "Importer and exporter for Valve Software's Source Engine. Supports SMD\VTA, DMX and QC. Fork of the last official 2.79 release with some improvements."
 }
 
 import bpy, os

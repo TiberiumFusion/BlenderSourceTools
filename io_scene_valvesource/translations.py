@@ -577,6 +577,12 @@ _data = {
 	'en': "Bone shapes",
 	'ru': "Отображение костей",
 },
+'importert_doeyebones': {
+	'en': "Create eyeball bones",
+},
+'importert_doeyebones_tooltip': {
+	'en': "Create bones for each QC eyeball command. Useful for adapting Source's 2D eyes system with different engines.",
+},
 'importer_err_nofile': {
 	'ja': "選択ファイルはありません",
 	'en': "No file selected",

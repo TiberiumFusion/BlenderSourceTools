@@ -54,6 +54,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 	rotMode = EnumProperty(name=get_id("importer_rotmode"),items=rotModes,default='XYZ',description=get_id("importer_rotmode_tip"))
 	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
 	
+	createEyeballBones = BoolProperty(name=get_id("importert_doeyebones"), description=get_id("importert_doeyebones_tooltip"), default=False)
+
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
 		pre_eem = context.user_preferences.edit.use_enter_edit_mode
@@ -66,7 +68,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		for filepath in [os.path.join(self.directory,file.name) for file in self.files] if self.files else [self.filepath]:
 			filepath_lc = filepath.lower()
 			if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
-				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, outer_qc=True)
+				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, self.properties.createEyeballBones, outer_qc=True)
 				bpy.context.scene.objects.active = self.qc.a
 			elif filepath_lc.endswith('.smd'):
 				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode)
@@ -442,7 +444,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 			ops.pose.armature_apply()
 
 			bone_vis = None if self.properties.boneMode == 'NONE' else bpy.data.objects.get("smd_bone_vis")
-			
+			if self.qc:
+				self.qc.bone_vis = bone_vis
+
 			if self.properties.boneMode == 'SPHERE' and (not bone_vis or bone_vis.type != 'MESH'):
 					ops.mesh.primitive_ico_sphere_add(subdivisions=3,size=2)
 					bone_vis = bpy.context.active_object
@@ -972,7 +976,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		print("- Imported",num_shapes,"flex shapes")
 
 	# Parses a QC file
-	def readQC(self, filepath, newscene, doAnim, makeCamera, rotMode, outer_qc = False):
+	def readQC(self, filepath, newscene, doAnim, makeCamera, rotMode, createEyeballBones, outer_qc = False):
 		filename = os.path.basename(filepath)
 		filedir = os.path.dirname(filepath)
 
@@ -1150,7 +1154,22 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if line[0] in ["$collisionmodel","$collisionjoints"]:
 				import_file(1,"smd",PHYS,'VALIDATE',layer=10) # FIXME: what if there are >10 LODs?
 				continue
+			
+			# define bones from qc eyeball commands
+			if createEyeballBones:
+				if line[0] == "eyeball":
+					eyeballName = line[1]
+					parentBoneName = line[2]
+					positionX = line[3]
+					positionY = line[4]
+					positionZ = line[5]
+					print("QC defined eyeball bone \"" + eyeballName + "\" on parent bone \"" + parentBoneName + "\" at pos X: " + positionX + " Y: " + positionY +  " Z: " + positionZ)
+				
+					if not hasattr(qc, "queued_eyebones"):
+						qc.queued_eyebones = []
 
+					qc.queued_eyebones.append([eyeballName, parentBoneName, float(positionX), float(positionY), float(positionZ)])
+			
 			# origin; this is where viewmodel editors should put their camera, and is in general something to be aware of
 			if line[0] == "$origin":
 				if qc.makeCamera:
@@ -1203,6 +1222,38 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		file.close()
 
+		
+		# Create queued eyeball bones
+		if hasattr(qc, "queued_eyebones"):
+			# Make actual edit_bones
+			if not qc.a: qc.a = self.findArmature()
+			bpy.context.scene.objects.active = qc.a
+			ops.object.mode_set(mode='EDIT')
+
+			createdBones = []
+
+			for bonedef in qc.queued_eyebones:
+				parentBone = None
+				for eb in qc.a.data.edit_bones: # Bone names used in the eyeball qc command are case insensitive
+					print("eb.name", eb.name)
+					if (eb.name.lower() == bonedef[1].lower()):
+						parentBone = eb
+						break
+
+				eyeballBone = qc.a.data.edit_bones.new(bonedef[0])
+				eyeballBone.head = (bonedef[2], bonedef[3], bonedef[4])
+				eyeballBone.tail = (bonedef[2], bonedef[3] - 0.25, bonedef[4])
+				eyeballBone.parent = parentBone
+
+				createdBones.append(bonedef[0])
+
+			# Set visual bone model
+			ops.object.mode_set(mode='OBJECT')
+
+			for bonedef in qc.queued_eyebones:
+				qc.a.pose.bones[bonedef[0]].custom_shape = qc.bone_vis
+
+
 		if qc.origin:
 			qc.origin.parent = qc.a
 			if qc.ref_mesh:
@@ -1214,6 +1265,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		if outer_qc:
 			printTimeMessage(qc.startTime,filename,"import","QC")
+
 		return self.num_files_imported
 
 	def initSMD(self, filepath,smd_type,upAxis,rotMode,target_layer):

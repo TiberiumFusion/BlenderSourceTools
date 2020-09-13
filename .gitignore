@@ -4,5 +4,6 @@ __pycache__
 *.VC.*
 .vs
 /old.txt
-/Test Install.bat
+/Install to Blender Scripts Folder.bat
 /UpgradeLog.htm
+/UpgradeLog2.htm
