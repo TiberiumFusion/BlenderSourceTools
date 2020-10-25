@@ -21,7 +21,7 @@
 bl_info = {
 	"name": "Blender Source Tools (BST-Fix+ for 2.79)",
 	"author": "Tom Edwards (translators: Grigory Revzin), modified by TF",
-	"version": (2, 10, 2, 999, 3),
+	"version": (2, 10, 2, 999, 4),
 	"blender": (2, 74, 0),
 	"category": "Import-Export",
 	"location": "File > Import/Export, Scene properties",

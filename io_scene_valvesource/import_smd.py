@@ -56,6 +56,8 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 	createEyeballBonesOpts = (("NONE", "None", "Don't create eyeball bones"), ("SINGLE", "Single Bone", "Create a single bone per eyeball"), ("WITHLEAF", "With Leaf Bone", "Create a two bones per eyeball, a basis bone and a leaf bone."))
 	createEyeballBones = EnumProperty(name=get_id("importert_doeyebones"), description=get_id("importert_doeyebones_tooltip"), items=createEyeballBonesOpts, default="NONE")
+	
+	vtaFuzzyMatchEpsilon = FloatProperty(name="VTA Fuzzy Match Epsilon", description="Epsilon to use for matching VTA vertices that do not exactly match their counterpart on the reference mesh.", default=0.0001, min=0.00000001, max=10000, precision=7)
 
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
@@ -69,14 +71,14 @@ class SmdImporter(bpy.types.Operator, Logger):
 		for filepath in [os.path.join(self.directory,file.name) for file in self.files] if self.files else [self.filepath]:
 			filepath_lc = filepath.lower()
 			if filepath_lc.endswith('.qc') or filepath_lc.endswith('.qci'):
-				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, self.properties.createEyeballBones, outer_qc=True)
+				self.num_files_imported = self.readQC(filepath, False, self.properties.doAnim, self.properties.makeCamera, self.properties.rotMode, self.properties.createEyeballBones, self.properties.vtaFuzzyMatchEpsilon, outer_qc=True)
 				bpy.context.scene.objects.active = self.qc.a
 			elif filepath_lc.endswith('.smd'):
-				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode)
+				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode, self.properties.vtaFuzzyMatchEpsilon)
 			elif filepath_lc.endswith ('.vta'):
-				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode, smd_type=FLEX)
+				self.num_files_imported = self.readSMD(filepath, self.properties.upAxis, self.properties.rotMode, self.properties.vtaFuzzyMatchEpsilon, smd_type=FLEX)
 			elif filepath_lc.endswith('.dmx'):
-				self.num_files_imported = self.readDMX(filepath, self.properties.upAxis, self.properties.rotMode)
+				self.num_files_imported = self.readDMX(filepath, self.properties.upAxis, self.properties.rotMode, self.properties.vtaFuzzyMatchEpsilon)
 			else:
 				if len(filepath_lc) == 0:
 					self.report({'ERROR'},get_id("importer_err_nofile"))
@@ -830,7 +832,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 			print("- Imported {} polys".format(countPolys))
 
 	# vertexanimation block
-	def readShapes(self):
+	def readShapes(self, vtaFuzzyMatchEpsilon):
 		smd = self.smd
 		if smd.jobType is not FLEX:
 			return
@@ -916,7 +918,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 							try:
 								map_id = mesh_cos_rnd.index(vec_round(co))
 							except ValueError:
-								fuzzy = 0.00001
+								fuzzy = vtaFuzzyMatchEpsilon
 								testCoord = vec_round(co)
 								print("Unmatched VTA vert -> ID: " + str(id) + "; Coord: " + str(co) + ". Resolve with fuzzy coords, fuzzy: " + str(fuzzy))
 								testRes = -1
@@ -977,7 +979,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 		print("- Imported",num_shapes,"flex shapes")
 
 	# Parses a QC file
-	def readQC(self, filepath, newscene, doAnim, makeCamera, rotMode, createEyeballBones, outer_qc = False):
+	def readQC(self, filepath, newscene, doAnim, makeCamera, rotMode, createEyeballBones, vtaFuzzyMatchEpsilon, outer_qc = False):
 		filename = os.path.basename(filepath)
 		filedir = os.path.dirname(filepath)
 
@@ -1062,7 +1064,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					self.append = append if qc.a else 'NEW_ARMATURE'
 
 					# import the file
-					self.num_files_imported += (self.readDMX if path.endswith("dmx") else self.readSMD)(path,qc.upAxis,rotMode,False,type,target_layer=layer)
+					self.num_files_imported += (self.readDMX if path.endswith("dmx") else self.readSMD)(path,qc.upAxis,rotMode,vtaFuzzyMatchEpsilon,False,type,target_layer=layer)
 				return True
 
 			# meshes
@@ -1217,7 +1219,7 @@ class SmdImporter(bpy.types.Operator, Logger):
 					elif os.path.exists(appendExt(path,".qc")):
 						path = appendExt(path,".qc")
 				try:
-					self.readQC(path,False, doAnim, makeCamera, rotMode)
+					self.readQC(path,False, doAnim, makeCamera, rotMode, createEyeballBones, vtaFuzzyMatchEpsilon)
 				except IOError:
 					self.warning(get_id("importer_err_qci", True).format(path))
 
@@ -1291,9 +1293,9 @@ class SmdImporter(bpy.types.Operator, Logger):
 		return smd
 
 	# Parses an SMD file
-	def readSMD(self, filepath, upAxis, rotMode, newscene = False, smd_type = None, target_layer = 0):
+	def readSMD(self, filepath, upAxis, rotMode, vtaFuzzyMatchEpsilon, newscene = False, smd_type = None, target_layer = 0):
 		if filepath.endswith("dmx"):
-			return self.readDMX( filepath, upAxis, newscene, smd_type)
+			return self.readDMX( filepath, upAxis, vtaFuzzyMatchEpsilon, newscene, smd_type)
 
 		smd = self.initSMD(filepath,smd_type,upAxis,rotMode,target_layer)
 		self.appliedReferencePose = False
@@ -1325,14 +1327,14 @@ class SmdImporter(bpy.types.Operator, Logger):
 			if line == "nodes\n": self.readNodes()
 			if line == "skeleton\n": self.readFrames()
 			if line == "triangles\n": self.readPolys()
-			if line == "vertexanimation\n": self.readShapes()
+			if line == "vertexanimation\n": self.readShapes(vtaFuzzyMatchEpsilon)
 
 		file.close()
 		printTimeMessage(smd.startTime,smd.jobName,"import")
 
 		return 1
 
-	def readDMX(self, filepath, upAxis, rotMode,newscene = False, smd_type = None, target_layer = 0):
+	def readDMX(self, filepath, upAxis, rotMode, vtaFuzzyMatchEpsilon, newscene = False, smd_type = None, target_layer = 0):
 		smd = self.initSMD(filepath,smd_type,upAxis,rotMode,target_layer)
 		smd.isDMX = 1
 
