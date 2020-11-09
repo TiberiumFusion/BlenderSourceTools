@@ -18,7 +18,7 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
-import bpy, bmesh, random, collections
+import bpy, bmesh, random, collections, mathutils
 from bpy import ops
 from bpy.app.translations import pgettext
 from bpy.props import *
@@ -55,9 +55,13 @@ class SmdImporter(bpy.types.Operator, Logger):
 	boneMode = EnumProperty(name=get_id("importer_bonemode"),items=(('NONE','Default',''),('ARROWS','Arrows',''),('SPHERE','Sphere','')),default='SPHERE',description=get_id("importer_bonemode_tip"))
 
 	createEyeballBonesOpts = (("NONE", "None", "Don't create eyeball bones"), ("SINGLE", "Single Bone", "Create a single bone per eyeball"), ("WITHLEAF", "With Leaf Bone", "Create a two bones per eyeball, a basis bone and a leaf bone."))
-	createEyeballBones = EnumProperty(name=get_id("importert_doeyebones"), description=get_id("importert_doeyebones_tooltip"), items=createEyeballBonesOpts, default="NONE")
+	createEyeballBones = EnumProperty(name=get_id("importerx_doeyebones"), description=get_id("importerx_doeyebones_tooltip"), items=createEyeballBonesOpts, default="NONE")
 	
-	vtaFuzzyMatchEpsilon = FloatProperty(name="VTA Fuzzy Match Epsilon", description="Epsilon to use for matching VTA vertices that do not exactly match their counterpart on the reference mesh.", default=0.0001, min=0.00000001, max=10000, precision=7)
+	vtaFuzzyMatchEpsilon = FloatProperty(name=get_id("importerx_vtafuzzyepsilon"), description=get_id("importerx_vtafuzzyepsilon_tooltip"), default=0.0001, min=0.00000001, max=10000, precision=7)
+
+	mdlOriginPickOpts = (("DEFAULT", "Default", "Set armature origin to $origin; will fall back to 0,0,0 if not available."), ("BBOX", "From Bounding Box", "Set armature origin to the median boint of the MDL's bounding box. Requires $bbox to exist in the QC; will fall back to 0,0,0 if not available."))
+	mdlOriginPick = EnumProperty(name=get_id("importerx_mdloriginpick"), description=get_id("importerx_mdloriginpick_tooltip"), items=mdlOriginPickOpts, default="DEFAULT")
+	
 
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
@@ -105,6 +109,21 @@ class SmdImporter(bpy.types.Operator, Logger):
 					space.clip_end = max( space.clip_end, xyz * 2 )
 		if bpy.context.area and bpy.context.area.type == 'VIEW_3D' and bpy.context.region:
 			ops.view3d.view_selected()
+		
+		# if the QC specified a bbox and the "origin from bbox" option is enabled, set the armature's origin to center of the qc-defined bbox (this is how hammer treats props)
+		# must do this here because the select commands and origin_set() do jack shit in readQC() for no damn reason
+		if self.properties.mdlOriginPick == "BBOX" and self.qc.bbox:
+			low = mathutils.Vector((self.qc.bbox[0], self.qc.bbox[1], self.qc.bbox[2]))
+			high = mathutils.Vector((self.qc.bbox[3], self.qc.bbox[4], self.qc.bbox[5]))
+			median = low.lerp(high, 0.5)
+			hammerOrigin = [median[1], median[0] * -1, median[2]] # 90 rotate on Z to match hammer's axes
+			bpy.context.scene.cursor_location = hammerOrigin
+			ops.object.select_all(action="DESELECT")
+			ops.object.mode_set(mode="OBJECT")
+			self.qc.a.select = True
+			bpy.context.scene.objects.active = self.qc.a
+			ops.object.origin_set(type="ORIGIN_CURSOR")
+			self.qc.a.location = (0, 0, 0)
 
 		context.user_preferences.edit.use_enter_edit_mode = pre_eem
 		self.append = pre_append
@@ -1173,6 +1192,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 					qc.queued_eyebones.append([eyeballName, parentBoneName, float(positionX), float(positionY), float(positionZ)])
 			
+			# make note of $bbox (useful for setting origing on models that were positioned in hammer, since hammer uses bounding box median as prop origin)
+			if line[0] == "$bbox":
+				qc.bbox = [float(line[1]), float(line[2]), float(line[3]), float(line[4]), float(line[5]), float(line[6])] # minX, minY, minZ, maxX, maxY, maxZ
+			
 			# origin; this is where viewmodel editors should put their camera, and is in general something to be aware of
 			if line[0] == "$origin":
 				if qc.makeCamera:
@@ -1261,7 +1284,6 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 			for bonename in createdBones:
 				qc.a.pose.bones[bonename].custom_shape = qc.bone_vis
-
 
 		if qc.origin:
 			qc.origin.parent = qc.a

@@ -577,11 +577,23 @@ _data = {
 	'en': "Bone shapes",
 	'ru': "Отображение костей",
 },
-'importert_doeyebones': {
+'importerx_doeyebones': {
 	'en': "Create eyeball bones",
 },
-'importert_doeyebones_tooltip': {
+'importerx_doeyebones_tooltip': {
 	'en': "Create bones for each QC eyeball command. Useful for adapting Source's 2D eyes system with different engines.",
+},
+'importerx_vtafuzzyepsilon': {
+	'en': "VTA Fuzzy Match Epsilon",
+},
+'importerx_vtafuzzyepsilon_tooltip': {
+	'en': "Epsilon to use for matching VTA vertices that do not exactly match their counterpart on the reference mesh.",
+},
+'importerx_mdloriginpick': {
+	'en': "Armature Origin",
+},
+'importerx_mdloriginpick_tooltip': {
+	'en': "Option for changing where the created armature's origin is sourced from.",
 },
 'importer_err_nofile': {
 	'ja': "選択ファイルはありません",
