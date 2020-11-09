@@ -8,3 +8,6 @@ Blender/BlenderSourceTools has some precision issues that become very problemati
 
 ### QC eyeball bone generation
 Adds an option when importing QCs to generate unweighted bones for all `eyeball` commands. These dummy eye bones can be useful for developing 2D eye tracking techniques when the model is exported for use in other engines or 3D packages.
+
+### Armature origin options
+In addition to the default behavior of setting the armature origin from $origin, there is an additional option to set the armature origin from the median point of the QC's $bbox. This is most useful when importing and arranging models that constitute a map, since Hammer uses the median point of each MDL's bounding box as its origin if no $origin is defined  (i.e. it doesn't use 0,0,0).
