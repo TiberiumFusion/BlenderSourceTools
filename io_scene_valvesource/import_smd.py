@@ -62,6 +62,10 @@ class SmdImporter(bpy.types.Operator, Logger):
 	mdlOriginPickOpts = (("DEFAULT", "Default", "Set armature origin to $origin; will fall back to 0,0,0 if not available."), ("BBOX", "From Bounding Box", "Set armature origin to the median boint of the MDL's bounding box. Requires $bbox to exist in the QC; will fall back to 0,0,0 if not available."))
 	mdlOriginPick = EnumProperty(name=get_id("importerx_mdloriginpick"), description=get_id("importerx_mdloriginpick_tooltip"), items=mdlOriginPickOpts, default="DEFAULT")
 	
+	# Script access only properties
+	callback_operation = StringProperty(default="_", options={'HIDDEN'}) # Short name (e.g. "object.some_operation") of an Operation to run immediately after the import has finished
+
+
 
 	def execute(self, context):
 		pre_obs = set(bpy.context.scene.objects)
@@ -127,6 +131,17 @@ class SmdImporter(bpy.types.Operator, Logger):
 
 		context.user_preferences.edit.use_enter_edit_mode = pre_eem
 		self.append = pre_append
+
+		# Callback operation
+		# Method to resolve operator class short string name to actual operator object courtesy of: https://blender.stackexchange.com/a/23955/68041
+		def get_operator_failsafe(idname):
+			op = bpy.ops
+			for attr in idname.split("."):
+				if attr not in dir(op):
+					return lambda: None
+				op = getattr(op, attr)
+			return op
+		get_operator_failsafe(self.callback_operation)()
 
 		return {'FINISHED'}
 
